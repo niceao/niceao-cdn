@@ -1,366 +1,353 @@
 class EasyDanmaku {
-    constructor(params) {
-        /* ------ 初始化属性 start--------   */
-        this.container = this.checkParams(params);                       //弹幕容器 | danmaku Parent container
-        this.wrapperStyle = params.wrapperStyle || null;                 //弹幕样式 | danmaku style
-        this.line = params.line || 10;                                   //弹幕总行数 | danmaku lines(default ten line)
-        this.speed = params.speed || 5;                                  //单条弹幕速度 | danmaku speed(default five 5)
-        this.runtime = params.runtime || 10;                             //弹幕列表播放时长,单位为秒 | running time
-        this.colourful = params.colourful || false;                      //彩色弹幕 | colourful danmaku(default false) 
-        this.loop = params.loop || false;                                //是否循环播放 | loop play
-        this.hover = params.hover || false;                              //鼠标悬停是否暂停 | hover pause
-        this.coefficient = params.coefficient|| 1.38;                    //同时刻弹幕系数  | danmaku Density factor
-        /* ------ 内部属性 start --------   */
-        this.originIndex = 0;                                            //弹幕列表起始下标 | danmaku Density factor
-        this.originList = null;                                          //备用列表  | Alternate list
-        this.offsetValue = this.container.offsetHeight / this.line;      //弹幕排列偏移量 | danmaku offsetValue
-        this.vipIndex = 0;                                               //vip弹幕下标 | vip danmaku subscript
-        this.overflowArr=[];                                             //溢出队列  | danmaku overflow Array
-        this.clearIng = false;                                           //是否正在处理溢出弹幕 | whether  handle overflow danmaku
-        this.cleartimer = null;                                          //定时器(处理溢出弹幕) | 
-        this.init();
-        this.handleEvents(params);                                       //事件注册 | handle Event
-    }
-    /**
-     * @description 事件注册
-     * @private
-     * @param {object} params 事件
-     */
-    handleEvents (params){
-        this.onComplete = params.onComplete || null;
-        this.onHover = params.onHover || null;
-    }
-    /**
-     * @description easyDanmaku初始化 设置弹幕容器基础样式，初始化弹幕赛道
-     * @private
-     */
-    init(){
-        this.runstatus = 1 // 0 | 1
-        this.aisle = [];
-        this.container.style.overflow = 'hidden';
-        if(this.hover)this.handleMouseHover();
-        if(Utils.getStyle(this.container,'position') !== 'relative' && Utils.getStyle(this.container,'position') !== 'fixed' ){
-            this.container.style.position = 'relative';
-        }
-        for (let i = 0; i < this.line; i++) {
-            this.aisle.push({
-                normalRow: true,
-                vipRow: true
-            });
-        }
-    }
-    /**
-     * @description 初始化参数类型校验
-     * @private
-     * @param {object} 初始化参数
-     * @returns {HTMLElement} 弹幕容器 
-     */
-    checkParams(params){
-        if(!document.querySelector(params.el))throw `Could not find the ${params.el} element`
-        if(params.wrapperStyle && typeof params.wrapperStyle !== 'string')throw `The type accepted by the wrapperStyle parameter is string`
-        if(params.line && typeof params.line !== 'number')throw `The type accepted by the line parameter is number`
-        if(params.speed && typeof params.speed !== 'number')throw `The type accepted by the speed parameter is number`
-        if(params.colourful && typeof params.colourful !== 'boolean')throw `The type accepted by the colourful parameter is boolean`
-        if(params.runtime && typeof params.runtime !== 'number')throw `The type accepted by the runtime parameter is number`
-        if(params.loop && typeof params.loop !== 'boolean')throw `The type accepted by the loop parameter is boolean`
-        if(params.coefficient && typeof params.coefficient !== 'number')throw `The type accepted by the coefficient parameter is number`
-        if(params.hover && typeof params.hover !== 'boolean')throw `The type accepted by the hover parameter is boolean`
-        if(params.onComplete && typeof params.onComplete !== 'function')throw `The type accepted by the onComplete parameter is function`
-        if(params.onHover && typeof params.onHover !== 'function')throw `The type accepted by the onHover parameter is function`
-        return document.querySelector(params.el)
-    }
-    
-    /**
-     * @description 单条弹幕发送 批量弹幕使用batchSend方法
-     * @param {string} content 弹幕内容
-     * @param {string} normalClass 弹幕默认样式
-     * @param {function} callback 弹幕播放结束后的回调函数 @returns {object} 本条弹幕的一些基本信息
-     * @public
-     */
-    send(content, normalClass=null,callback=null) {
-        if(this.runstatus == 0){
-            this.overflowArr.push({
-                content,
-                normalClass
-            });
-            return
-        }
-        if(content.length<1)return
-        let sheet = document.createElement('div');
-        let index = 0;
-        let speed = this.speed;
-        let timer = null;
-        let origin = 0;
-        sheet.innerHTML = content;
-        sheet.style.display = 'inline-block';
-        sheet.classList.add('default-style')
-        if (normalClass || this.wrapperStyle){
-            sheet.classList.add(normalClass || this.wrapperStyle);
-        }
-        containerAppendChild.call(this);
-        function containerAppendChild() {
-            index = Math.round( Math.random() * (this.line - 1) );
-            if (this.aisle[index].normalRow) {
-                this.aisle[index].normalRow = false;
-                this.container.appendChild(sheet);
-                speed += sheet.offsetWidth / sheet.parentNode.offsetWidth * 2;
-                sheet.style.cssText = `
-                    text-align:center;
-                    min-width:130px;
-                    will-change: transform;
-                    position:absolute;
-                    right: -${sheet.offsetWidth+130}px;
-                    transition: transform ${speed}s linear;
-                    transform: translateX(-${sheet.parentNode.offsetWidth + sheet.offsetWidth + 130}px);
-                    top: ${index * this.offsetValue}px;
-                    line-height:${this.offsetValue}px;
-                    color:${this.colourful?'#'+('00000'+(Math.random()*0x1000000<<0).toString(16)).substr(-6):void(0)}
-                `
-                //开启弹幕通道
-                let unit = (sheet.parentNode.offsetWidth + sheet.offsetWidth) / speed / 60;
-                timer = setInterval(()=>{
-                    origin += unit;
-                    if(origin > sheet.offsetWidth * this.coefficient){
-                        this.aisle[index].normalRow = true;
-                        clearInterval(timer);
-                    }
-                },16.66)
+    constructor(options) {
+        // Initialize with user-specified parameters or defaults
+        this.container = this.checkParams(options);
+        this.pathname = options.page || null;
+        this.wrapperStyle = options.wrapperStyle || null;
+        this.line = options.line || 10;
+        this.speed = options.speed || 5;
+        this.runtime = options.runtime || 10;
+        this.colourful = options.colourful || false;
+        this.loop = options.loop || false;
+        this.hover = options.hover || false;
+        this.coefficient = options.coefficient || 1.38;
 
-                // 删除已播放弹幕
-                setTimeout(() => {
-                    if(sheet.getAttribute('relieveDel') == 1)return
-                    if(callback)callback({
-                        runtime:speed,
-                        target:sheet,
-                        width:sheet.offsetWidth
-                    });
-                    sheet.remove();
-                }, speed * 1000);
-            }
-            else {
-                // 重新选择通道
-                let some = this.aisle.some(item => item.normalRow === true);
-                some ? containerAppendChild.call(this)  : (()=>{
-                    this.overflowArr.push({
-                        content,
-                        normalClass
-                    });
-                    if(!this.clearIng){
-                        //开始清理溢出弹幕
-                        this.clearOverflowDanmakuArray();  
-                    }
-                })() 
-            }
+        // State variables
+        this.originIndex = 0;
+        this.originList = null;
+        this.offsetValue = this.container.offsetHeight / this.line;
+        this.vipIndex = 0;
+        this.overflowArr = [];
+        this.clearIng = false;
+        this.cleartimer = null;
+
+        // Initialize danmaku
+        this.init();
+        this.handleEvents(options);
+    }
+
+    // Set up custom events
+    handleEvents(options) {
+        this.onComplete = options.onComplete || null;
+        this.onHover = options.onHover || null;
+    }
+
+    // Initialize the danmaku environment
+    init() {
+        this.runstatus = 1;
+        this.aisle = [];
+        this.container.style.overflow = "hidden";
+
+        if (this.hover) this.handleMouseHover();
+
+        if (Utils.getStyle(this.container, "position") !== "relative" &&
+            Utils.getStyle(this.container, "position") !== "fixed") {
+            this.container.style.position = "relative";
+        }
+
+        for (let i = 0; i < this.line; i++) {
+            this.aisle.push({ normalRow: true, vipRow: true });
         }
     }
-    /**
-     * @description 批量发送弹幕
-     * @param {Array} list
-     * @param {Boolean} hasAvatar 是否包含头像
-     * @param {string} normalClass 此批弹幕样式
-     * @public
-     */
-    batchSend(list,hasAvatar = false,normalClass=null) {
-        let runtime = this.runtime || list.length * 1.23;
-        this.originList = list;
+
+    // Validate and check the user input parameters
+    checkParams(options) {
+        if (!document.querySelector(options.el)) {
+            throw `Could not find the ${options.el} element`;
+        }
+        if (options.wrapperStyle && typeof options.wrapperStyle !== "string") {
+            throw "The wrapperStyle parameter must be a string";
+        }
+        if (options.line && typeof options.line !== "number") {
+            throw "The line parameter must be a number";
+        }
+        if (options.speed && typeof options.speed !== "number") {
+            throw "The speed parameter must be a number";
+        }
+        if (options.colourful && typeof options.colourful !== "boolean") {
+            throw "The colourful parameter must be a boolean";
+        }
+        if (options.runtime && typeof options.runtime !== "number") {
+            throw "The runtime parameter must be a number";
+        }
+        if (options.loop && typeof options.loop !== "boolean") {
+            throw "The loop parameter must be a boolean";
+        }
+        if (options.coefficient && typeof options.coefficient !== "number") {
+            throw "The coefficient parameter must be a number";
+        }
+        if (options.hover && typeof options.hover !== "boolean") {
+            throw "The hover parameter must be a boolean";
+        }
+        if (options.onComplete && typeof options.onComplete !== "function") {
+            throw "The onComplete parameter must be a function";
+        }
+        if (options.onHover && typeof options.onHover !== "function") {
+            throw "The onHover parameter must be a function";
+        }
+        return document.querySelector(options.el);
+    }
+
+    // Send a single danmaku message
+    send(content, customClass = null, callback = null) {
+        if (this.runstatus === 0) {
+            this.overflowArr.push({ content, normalClass: customClass });
+            return;
+        }
+
+        if (content.length < 1) return;
+
+        const danmaku = document.createElement("div");
+        let rowIndex = 0;
+        let animationSpeed = this.speed;
+        let interval = null;
+        let traveled = 0;
+
+        danmaku.innerHTML = content;
+        danmaku.style.display = "inline-block";
+        danmaku.classList.add("default-style");
+
+        if (customClass || this.wrapperStyle) {
+            danmaku.classList.add(customClass || this.wrapperStyle);
+        }
+
+        const attemptPlacement = () => {
+            rowIndex = Math.round(Math.random() * (this.line - 1));
+
+            if (this.aisle[rowIndex].normalRow) {
+                this.aisle[rowIndex].normalRow = false;
+                this.container.appendChild(danmaku);
+
+                animationSpeed += (danmaku.offsetWidth / danmaku.parentNode.offsetWidth) * 2;
+
+                danmaku.style.cssText = `
+                    text-align: center;
+                    min-width: 130px;
+                    will-change: transform;
+                    position: absolute;
+                    right: -${danmaku.offsetWidth + 130}px;
+                    transition: transform ${animationSpeed}s linear;
+                    transform: translateX(-${danmaku.parentNode.offsetWidth + danmaku.offsetWidth + 130}px);
+                    top: ${rowIndex * this.offsetValue}px;
+                    line-height: ${this.offsetValue}px;
+                    ${this.colourful ? `color: #${(16777216 * Math.random() << 0).toString(16).padStart(6, '0')};` : ''}
+                `;
+
+                const step = (danmaku.parentNode.offsetWidth + danmaku.offsetWidth) / animationSpeed / 60;
+
+                interval = setInterval(() => {
+                    traveled += step;
+                    if (traveled > danmaku.offsetWidth * this.coefficient) {
+                        this.aisle[rowIndex].normalRow = true;
+                        clearInterval(interval);
+                    }
+                }, 16.66);
+
+                setTimeout(() => {
+                    if (danmaku.getAttribute("relieveDel") !== "1") {
+                        if (callback) callback({ runtime: animationSpeed, target: danmaku, width: danmaku.offsetWidth });
+                        danmaku.remove();
+                    }
+                }, animationSpeed * 1000);
+            } else {
+                if (this.aisle.some(row => row.normalRow)) {
+                    attemptPlacement();
+                } else {
+                    this.overflowArr.push({ content, normalClass: customClass });
+                    if (!this.clearIng) this.clearOverflowDanmakuArray();
+                }
+            }
+        };
+
+        attemptPlacement();
+    }
+
+    // Batch-send multiple danmaku messages
+    batchSend(messages, hasAvatar = false, customClass = null) {
+        const delay = this.runtime || (1.23 * messages.length);
+        this.originList = messages;
         this.hasAvatar = hasAvatar;
-        this.normalClass = normalClass;
-        let timer = setInterval(()=>{
-            if(this.originIndex>list.length-1){
-                clearInterval(timer);
+        this.normalClass = customClass;
+
+        const interval = setInterval(() => {
+            if (location.pathname !== this.pathname) {
+                clearInterval(interval);
+                return;
+            }
+
+            if (this.originIndex > messages.length - 1) {
+                clearInterval(interval);
                 this.originIndex = 0;
-                if(this.onComplete) this.onComplete();
-                if(this.loop) this.batchSend(this.originList,hasAvatar,normalClass);
-            }else{
-                if(hasAvatar){
-                    this.send(`<img src=${list[this.originIndex].avatar}>
-                        <p>${list[this.originIndex].content}</p>
-                    `,normalClass || this.wrapperStyle);
-                }else{
-                    this.send(list[this.originIndex],normalClass || this.wrapperStyle);
+                if (this.onComplete) this.onComplete();
+                if (this.loop) this.batchSend(this.originList, hasAvatar, customClass);
+            } else {
+                if (hasAvatar) {
+                    const message = messages[this.originIndex];
+                    this.send(
+                        `${message.url ? `<a href="${message.url}">` : ''}
+                            <img src="${message.avatar}">
+                            <p>${message.content}</p>
+                        ${message.url ? `</a>` : ''}`,
+                        customClass || this.wrapperStyle
+                    );
+                } else {
+                    this.send(messages[this.originIndex], customClass || this.wrapperStyle);
                 }
                 this.originIndex++;
             }
-        },runtime / list.length * 1000)
+        }, (delay / messages.length) * 1000);
     }
 
-    /**
-     * @description 居中发送弹幕
-     * @param {string} content 
-     * @param {string} normalClass
-     * @param {number} duration
-     * @param {function} callback
-     * @public
-     */
-    centeredSend(content, normalClass,duration = 3000,callback = null) {
-        
-        let sheet = document.createElement('div');
-        let index = 0;
-        sheet.innerHTML = content;
-        if (normalClass || this.wrapperStyle){
-            sheet.classList.add(normalClass || this.wrapperStyle);
+    // Center a single danmaku message
+    centeredSend(content, customClass, duration = 3000, callback = null) {
+        const danmaku = document.createElement("div");
+        let rowIndex = 0;
+
+        danmaku.innerHTML = content;
+
+        if (customClass || this.wrapperStyle) {
+            danmaku.classList.add(customClass || this.wrapperStyle);
         }
-        containerAppendChild.call(this);
 
-        function containerAppendChild(){
-            if(this.aisle[index].vipRow){
-                this.container.appendChild(sheet);
-                sheet.style.cssText = `
-                    position:absolute;
-                    left:50%;
-                    transform:translateX(-50%);
-                    top: ${index * this.offsetValue}px;
-                `
-                this.aisle[index].vipRow = false;
-                setTimeout(()=>{
-                    if(callback)callback({
-                        duration:duration,
-                        target:sheet,
-                        width:sheet.offsetWidth
-                    });
-                    sheet.remove();
-                    this.aisle[index].vipRow = true;
-                },duration)
+        const attemptPlacement = () => {
+            if (this.aisle[rowIndex].vipRow) {
+                this.container.appendChild(danmaku);
 
-            }else{
+                danmaku.style.cssText = `
+                    position: absolute;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    top: ${rowIndex * this.offsetValue}px;
+                `;
 
-                index++;
-                if(index > this.line - 1) return
-                containerAppendChild.call(this);
+                this.aisle[rowIndex].vipRow = false;
+
+                setTimeout(() => {
+                    if (callback) callback({ duration, target: danmaku, width: danmaku.offsetWidth });
+                    danmaku.remove();
+                    this.aisle[rowIndex].vipRow = true;
+                }, duration);
+            } else {
+                rowIndex++;
+                if (rowIndex > this.line - 1) return;
+                attemptPlacement();
             }
-        }
-        
+        };
+
+        attemptPlacement();
     }
 
-    /**
-     * @description 播放
-     * @public
-     */
+    // Resume danmaku playback
     play() {
-        const allDanmaku = this.container.children;
-        for(let i=0; i<allDanmaku.length; i++){
-            this.controlDanmakurunStatus(allDanmaku[i],1);
+        const danmakus = this.container.children;
+
+        for (let i = 0; i < danmakus.length; i++) {
+            this.controlDanmakurunStatus(danmakus[i], 1);
         }
+
         this.runstatus = 1;
-        if(this.overflowArr.length!==0)this.clearOverflowDanmakuArray();
+
+        if (this.overflowArr.length !== 0) {
+            this.clearOverflowDanmakuArray();
+        }
     }
 
-    /**
-     * @description 暂停
-     * @public
-     */
-    pause(){
-        const allDanmaku = this.container.children;
-        for(let i=0; i<allDanmaku.length; i++){
-            this.controlDanmakurunStatus(allDanmaku[i],0);
+    // Pause danmaku playback
+    pause() {
+        const danmakus = this.container.children;
+
+        for (let i = 0; i < danmakus.length; i++) {
+            this.controlDanmakurunStatus(danmakus[i], 0);
         }
+
         this.runstatus = 0;
     }
 
-    /**
-     * @description 控制弹幕运动状态 暂停|播放
-     * @param {HTMLElement} 目标dom
-     * @param {number} 1(播放) | 0(暂停)
-     * 
-     */
-    controlDanmakurunStatus(target,status) {
-        const extensiveStatus = {
-            play:1,
-            pause:0
-        }
-        const RegExpforTranslateX = /-(\S*),/;
-        if(status === extensiveStatus.play){
-            // 播放
-            clearTimeout(target.timer)
-            const translateX = Utils.getStyle(target,'transform').match(RegExpforTranslateX)[1];
-            target.style['transition'] = `transform ${this.speed}s linear`;
-            target.style['transform'] = `translateX(-${target.parentNode.offsetWidth + parseInt(translateX) + target.offsetWidth + 130}px)`;
-            target.timer = setTimeout(() => {
-                target.remove();
+    // Control animation status of a single danmaku
+    controlDanmakurunStatus(danmaku, status) {
+        const MATCH_POSITION_REGEX = /-(\S*),/;
+
+        if (status === 1) {
+            // Resume danmaku
+            clearTimeout(danmaku.timer);
+            const currentPosition = Utils.getStyle(danmaku, "transform").match(MATCH_POSITION_REGEX)[1];
+
+            danmaku.style.transition = `transform ${this.speed}s linear`;
+            danmaku.style.transform = `translateX(-${danmaku.parentNode.offsetWidth + parseInt(currentPosition) + danmaku.offsetWidth + 130}px)`;
+
+            danmaku.timer = setTimeout(() => {
+                danmaku.remove();
             }, this.speed * 1000);
-        }else if(status === extensiveStatus.pause){
-            // 暂停
-            clearTimeout(target.timer)
-            const translateX = Utils.getStyle(target,'transform').match(RegExpforTranslateX)[1];
-            target.style['transition'] = 'transform 0s linear';
-            target.style['transform'] = `translateX(-${translateX}px)`;
-            target.setAttribute('relieveDel',1);
+        } else if (status === 0) {
+            // Pause danmaku
+            clearTimeout(danmaku.timer);
+            const currentPosition = Utils.getStyle(danmaku, "transform").match(MATCH_POSITION_REGEX)[1];
 
+            danmaku.style.transition = "transform 0s linear";
+            danmaku.style.transform = `translateX(-${currentPosition}px)`;
+            danmaku.setAttribute("relieveDel", "1");
         }
     }
 
-    
-    /**
-     * @description 鼠标移入悬停
-     * @private
-     */
+    // Handle mouse hover interactions
     handleMouseHover() {
-        Utils.eventDelegation(this.container,'default-style','mouseover',(activeDom)=>{
-            activeDom.style['z-index']=1000;
-            this.controlDanmakurunStatus(activeDom,0); //暂停
-            if(this.onHover)this.onHover(activeDom);
-        })
-        Utils.eventDelegation(this.container,'default-style','mouseout',(activeDom)=>{
-            activeDom.style.zIndex=1
-            if(this.runstatus==1)this.controlDanmakurunStatus(activeDom,1); //播放
-        })
+        Utils.eventDelegation(this.container, "default-style", "mouseover", (target) => {
+            target.style.zIndex = 1000;
+            this.controlDanmakurunStatus(target, 0);
+
+            if (this.onHover) this.onHover(target);
+        });
+
+        Utils.eventDelegation(this.container, "default-style", "mouseout", (target) => {
+            target.style.zIndex = 1;
+
+            if (this.runstatus === 1) {
+                this.controlDanmakurunStatus(target, 1);
+            }
+        });
     }
 
-    /**
-     * @description 用于处理溢出弹幕
-     * @public
-     */
+    // Clear the overflow array of pending danmakus
     clearOverflowDanmakuArray() {
         clearInterval(this.cleartimer);
         this.clearIng = true;
-        let timerLimit = 0;
-        this.cleartimer = setInterval(()=>{
-            if(this.overflowArr.length === 0){
-                timerLimit ++;
-                
-                if(timerLimit > 20){
-                    // 无新入溢出弹幕关闭清理
+
+        let idleCounter = 0;
+
+        this.cleartimer = setInterval(() => {
+            if (this.overflowArr.length === 0) {
+                idleCounter++;
+                if (idleCounter > 20) {
                     clearInterval(this.cleartimer);
                     this.clearIng = false;
                 }
-            }else{
-                this.send(this.overflowArr[0].content, this.overflowArr[0].normalClass || this.wrapperStyle);
-                this.overflowArr.shift();
+            } else {
+                const next = this.overflowArr.shift();
+                this.send(next.content, next.normalClass || this.wrapperStyle);
             }
-        },500)
+        }, 500);
     }
 }
 
-/**
- * @class 工具类
- */
-class Utils{
-    
-    /**
-    * @description 获取元素样式
-    * @public
-    * @param {string} el 获取样式的节点 
-    * @param {string} attr 获取的样式名
-    * @returns {string} 元素样式
-    */
-    static getStyle(el,attr){
-        return window.getComputedStyle(el,null)[attr];
+// Utility class for helper functions
+class Utils {
+    // Get a CSS style of an element
+    static getStyle(element, styleName) {
+        return window.getComputedStyle(element, null)[styleName];
     }
 
-    /**
-     * @description 事件委托
-     * @param {string}   parent 被事件委托对象
-     * @param {string}   childClassName  事件委托的对象类名
-     * @param {string}   EventName  所委托的事件名
-     * @param {function} callBackFn 触发事件的回调(e:触发事件的元素)
-     * @private
-     */
-    static eventDelegation(parent,childName,EventName,callBackFn){
-        parent.addEventListener(EventName, (e) => {
-            const containerDom = e.target;
-            if(containerDom.className.includes(childName)){
-                callBackFn(containerDom)
+    // Delegate events to dynamically created elements
+    static eventDelegation(container, targetClass, eventType, callback) {
+        container.addEventListener(eventType, (event) => {
+            try {
+                if (event.target.className.includes(targetClass)) {
+                    callback(event.target);
+                } else if (event.target.parentNode.className.includes(targetClass)) {
+                    callback(event.target.parentNode);
+                }
+            } catch (error) {
+                console.error(error);
             }
-        })
+        });
     }
 }
