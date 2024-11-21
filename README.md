@@ -4,8 +4,8 @@
 
 ## 预览
 
-- miku.png
-![Miku](https://cdn.jsdelivr.net/gh/ciraos/ciraos-static@main/img/erciyuan/fulilian5.avif)
+- Jxin.png
+![Jinx](https://cdn.jsdelivr.net/gh/niceao/niceao-cdn@main/img/blog/jinx.avif)
 
 ## 使用方法
 
