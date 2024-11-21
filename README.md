@@ -4,7 +4,7 @@
 
 ## 预览
 
-- Jxin.png
+- Jinx.png
 ![Jinx](https://cdn.jsdelivr.net/gh/niceao/niceao-cdn@main/img/blog/jinx.avif)
 
 ## 使用方法
